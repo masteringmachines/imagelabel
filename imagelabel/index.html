@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImageLabel</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg:      #0e0e0f;
+    --surface: #161618;
+    --border:  #2a2a2e;
+    --accent:  #e8ff47;
+    --accent2: #47d4ff;
+    --danger:  #ff5e5e;
+    --text:    #f0f0ef;
+    --muted:   #6b6b72;
+    --radius:  6px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .progress-text { color: var(--muted); font-size: 12px; }
+
+  /* ── Buttons ── */
+  button {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    padding: 7px 14px;
+    transition: all 0.12s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #111;
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: #d4eb30; transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+  .btn-danger:hover { background: var(--danger); color: white; }
+
+  /* ── Layout ── */
+  .workspace {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Left Panel ── */
+  .panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .file-list { overflow-y: auto; flex: 1; }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    position: relative;
+  }
+  .file-item:hover { background: #1c1c1f; }
+  .file-item.active { background: #1e1e22; border-left: 2px solid var(--accent); }
+  .file-thumb {
+    width: 38px; height: 38px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .file-thumb-placeholder {
+    width: 38px; height: 38px;
+    border-radius: 4px;
+    background: var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 16px;
+  }
+  .file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .file-status {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .file-status.done { background: var(--accent); }
+  .file-status.pending { background: var(--border); border: 1px solid var(--muted); }
+
+  /* ── Canvas Area ── */
+  .canvas-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #0a0a0b;
+  }
+  .canvas-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tool-btn {
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-size: 11px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .tool-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .tool-btn:hover { color: var(--text); border-color: var(--muted); }
+  .tool-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+  .canvas-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  #canvas-container {
+    position: relative;
+    display: inline-block;
+    cursor: crosshair;
+  }
+  #main-image {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    user-select: none;
+    pointer-events: none;
+  }
+  #bbox-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+  }
+  #draw-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    cursor: crosshair;
+  }
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--muted);
+    height: 100%;
+  }
+  .empty-icon { font-size: 48px; }
+  .empty-state h2 { font-family: 'Syne', sans-serif; font-size: 20px; color: var(--text); font-weight: 700; }
+  .empty-state p { font-size: 12px; text-align: center; line-height: 1.6; max-width: 280px; }
+  .drop-zone-active { outline: 2px dashed var(--accent) !important; }
+
+  /* ── Right Panel ── */
+  .right-panel {
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .label-section { padding: 16px; border-bottom: 1px solid var(--border); }
+  .label-section h3 { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+  /* Classification tags */
+  .tag-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.1s;
+    font-family: 'DM Mono', monospace;
+  }
+  .tag:hover { border-color: var(--accent); color: var(--accent); }
+  .tag.selected { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 500; }
+  .tag.multi-selected { background: var(--accent2); color: #111; border-color: var(--accent2); }
+
+  /* Custom tag input */
+  .tag-input-row { display: flex; gap: 6px; margin-top: 8px; }
+  .tag-input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+  }
+  .tag-input:focus { border-color: var(--accent); }
+  .tag-input::placeholder { color: var(--muted); }
+
+  /* Text notes */
+  .notes-area {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+  }
+  .notes-area:focus { border-color: var(--muted); }
+
+  /* BBox list */
+  .bbox-list { overflow-y: auto; flex: 1; padding: 8px; }
+  .bbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+  .bbox-color { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .bbox-label-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    outline: none;
+  }
+  .bbox-label-input:focus { border-bottom: 1px solid var(--accent); }
+  .bbox-delete { background: transparent; border: none; color: var(--muted); cursor: pointer; padding: 2px 4px; font-size: 14px; }
+  .bbox-delete:hover { color: var(--danger); }
+
+  /* Bottom action bar */
+  .action-bar {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Keyboard hint */
+  kbd {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+  .kb-hints { display: flex; gap: 12px; padding: 8px 16px; flex-shrink: 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .kb-hint { font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+
+  /* SVG boxes */
+  .bbox-rect { stroke-width: 2; fill-opacity: 0.08; cursor: pointer; }
+  .bbox-rect:hover { fill-opacity: 0.2; }
+
+  /* Notification toast */
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--accent);
+    color: #111;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 999;
+    pointer-events: none;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Image<span>Label</span></div>
+  <div class="header-actions">
+    <span class="progress-text" id="progress-text">0 / 0 labeled</span>
+    <button class="btn-ghost" id="btn-load" onclick="loadImages()">📂 Load Images</button>
+    <button class="btn-primary" id="btn-export" onclick="exportCSV()">↓ Export CSV</button>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- Left: file list -->
+  <div class="panel">
+    <div class="panel-header">
+      <span>Images</span>
+      <span id="file-count" style="color:var(--muted)">0 files</span>
+    </div>
+    <div class="file-list" id="file-list"></div>
+  </div>
+
+  <!-- Center: canvas -->
+  <div class="canvas-area" id="drop-target">
+    <div class="canvas-toolbar">
+      <button class="tool-btn active" id="tool-select" onclick="setTool('select')">↖ Select</button>
+      <button class="tool-btn" id="tool-bbox" onclick="setTool('bbox')">⬜ Draw Box</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" onclick="zoomIn()">＋ Zoom</button>
+      <button class="tool-btn" onclick="zoomOut()">－ Zoom</button>
+      <button class="tool-btn" onclick="resetZoom()">↺ Fit</button>
+      <div class="tool-sep"></div>
+      <span style="color:var(--muted);font-size:11px;" id="zoom-label">100%</span>
+    </div>
+    <div class="canvas-wrapper" id="canvas-wrapper">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">🖼</div>
+        <h2>Drop images here</h2>
+        <p>Drag &amp; drop image files, or click<br><strong>Load Images</strong> to get started.</p>
+        <button class="btn-primary" onclick="loadImages()">Load Images</button>
+      </div>
+      <div id="canvas-container" style="display:none;">
+        <img id="main-image" draggable="false" />
+        <svg id="bbox-overlay"></svg>
+        <canvas id="draw-overlay"></canvas>
+      </div>
+    </div>
+    <div class="kb-hints">
+      <span class="kb-hint"><kbd>←</kbd><kbd>→</kbd> navigate</span>
+      <span class="kb-hint"><kbd>S</kbd> save &amp; next</span>
+      <span class="kb-hint"><kbd>Del</kbd> delete box</span>
+      <span class="kb-hint"><kbd>1-9</kbd> quick label</span>
+    </div>
+  </div>
+
+  <!-- Right: label panel -->
+  <div class="right-panel">
+    <div class="label-section">
+      <h3>Classification</h3>
+      <div class="tag-grid" id="tag-grid"></div>
+      <div class="tag-input-row">
+        <input class="tag-input" id="new-tag-input" placeholder="+ new label…" />
+        <button class="btn-ghost" onclick="addCustomTag()">Add</button>
+      </div>
+    </div>
+
+    <div class="label-section">
+      <h3>Tags (multi-select)</h3>
+      <div class="tag-grid" id="multi-tag-grid"></div>
+      <div class="tag-input-row">
+        <input class="tag-input" id="new-multi-tag-input" placeholder="+ new tag…" />
+        <button class="btn-ghost" onclick="addMultiTag()">Add</button>
+      </div>
+    </div>
+
+    <div class="label-section">
+      <h3>Notes</h3>
+      <textarea class="notes-area" id="notes-area" rows="3" placeholder="Optional notes…"></textarea>
+    </div>
+
+    <div class="panel-header" style="flex-shrink:0;">
+      <span>Bounding Boxes</span>
+      <span id="bbox-count" style="color:var(--muted)">0 boxes</span>
+    </div>
+    <div class="bbox-list" id="bbox-list"></div>
+
+    <div class="action-bar">
+      <button class="btn-primary" style="flex:1" onclick="saveAndNext()">Save &amp; Next →</button>
+      <button class="btn-ghost" onclick="saveCurrent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="file-input" multiple accept="image/*" style="display:none" onchange="handleFileInput(event)">
+
+<script>
+// ═══════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════
+const state = {
+  images: [],        // { file, name, url, labels }
+  current: -1,
+  tool: 'select',
+  zoom: 1.0,
+  drawing: false,
+  drawStart: null,
+  drawCurrent: null,
+  selectedBox: -1,
+  classLabels: ['Cat', 'Dog', 'Car', 'Person', 'Other'],
+  multiLabels:  ['Blurry', 'Occluded', 'Night', 'Outdoor', 'Indoor'],
+  bboxColors: ['#e8ff47','#47d4ff','#ff7eb3','#ff9f47','#b47fff','#47ffb4'],
+};
+
+function defaultLabels() {
+  return { classification: null, tags: [], notes: '', boxes: [] };
+}
+
+// ═══════════════════════════════════════════════════
+// File Loading
+// ═══════════════════════════════════════════════════
+function loadImages() { document.getElementById('file-input').click(); }
+
+function handleFileInput(e) {
+  const files = [...e.target.files];
+  files.forEach(f => {
+    if (state.images.find(i => i.name === f.name)) return;
+    state.images.push({ file: f, name: f.name, url: URL.createObjectURL(f), labels: defaultLabels() });
+  });
+  renderFileList();
+  if (state.current === -1 && state.images.length > 0) loadImage(0);
+  e.target.value = '';
+}
+
+// Drag & drop on canvas area
+const dropTarget = document.getElementById('drop-target');
+dropTarget.addEventListener('dragover', e => { e.preventDefault(); dropTarget.classList.add('drop-zone-active'); });
+dropTarget.addEventListener('dragleave', () => dropTarget.classList.remove('drop-zone-active'));
+dropTarget.addEventListener('drop', e => {
+  e.preventDefault();
+  dropTarget.classList.remove('drop-zone-active');
+  const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+  files.forEach(f => {
+    if (state.images.find(i => i.name === f.name)) return;
+    state.images.push({ file: f, name: f.name, url: URL.createObjectURL(f), labels: defaultLabels() });
+  });
+  renderFileList();
+  if (state.current === -1 && state.images.length > 0) loadImage(0);
+});
+
+// ═══════════════════════════════════════════════════
+// Image loading & display
+// ═══════════════════════════════════════════════════
+function loadImage(idx) {
+  saveCurrent();
+  state.current = idx;
+  state.selectedBox = -1;
+  state.zoom = 1.0;
+
+  const img = state.images[idx];
+  const el = document.getElementById('main-image');
+  el.onload = () => {
+    fitZoom();
+    renderBboxes();
+  };
+  el.src = img.url;
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('canvas-container').style.display = 'inline-block';
+
+  // Populate label panel
+  populateLabelPanel(img.labels);
+  renderFileList();
+  renderBboxList();
+  updateProgress();
+}
+
+function fitZoom() {
+  const wrapper = document.getElementById('canvas-wrapper');
+  const el = document.getElementById('main-image');
+  const ww = wrapper.clientWidth - 40;
+  const wh = wrapper.clientHeight - 40;
+  const scale = Math.min(ww / el.naturalWidth, wh / el.naturalHeight, 1);
+  state.zoom = scale;
+  applyZoom();
+}
+
+function applyZoom() {
+  const el = document.getElementById('main-image');
+  const w = Math.round(el.naturalWidth * state.zoom);
+  const h = Math.round(el.naturalHeight * state.zoom);
+  el.style.width = w + 'px';
+  el.style.height = h + 'px';
+  const overlay = document.getElementById('bbox-overlay');
+  overlay.setAttribute('width', w);
+  overlay.setAttribute('height', h);
+  overlay.style.width = w + 'px';
+  overlay.style.height = h + 'px';
+  const canvas = document.getElementById('draw-overlay');
+  canvas.width = w; canvas.height = h;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  document.getElementById('zoom-label').textContent = Math.round(state.zoom * 100) + '%';
+  renderBboxes();
+}
+
+function zoomIn()   { state.zoom = Math.min(state.zoom * 1.25, 4); applyZoom(); }
+function zoomOut()  { state.zoom = Math.max(state.zoom / 1.25, 0.1); applyZoom(); }
+function resetZoom(){ fitZoom(); }
+
+// ═══════════════════════════════════════════════════
+// Tool switching
+// ═══════════════════════════════════════════════════
+function setTool(t) {
+  state.tool = t;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tool-' + t).classList.add('active');
+  document.getElementById('draw-overlay').style.cursor = t === 'bbox' ? 'crosshair' : 'default';
+}
+
+// ═══════════════════════════════════════════════════
+// Bounding box drawing
+// ═══════════════════════════════════════════════════
+const drawCanvas = () => document.getElementById('draw-overlay');
+
+function canvasCoords(e) {
+  const rect = drawCanvas().getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) / state.zoom,
+    y: (e.clientY - rect.top)  / state.zoom,
+  };
+}
+
+document.getElementById('draw-overlay').addEventListener('mousedown', e => {
+  if (state.tool !== 'bbox' || state.current === -1) return;
+  state.drawing = true;
+  state.drawStart = canvasCoords(e);
+  state.drawCurrent = state.drawStart;
+});
+
+document.addEventListener('mousemove', e => {
+  if (!state.drawing) return;
+  state.drawCurrent = canvasCoords(e);
+  drawPreview();
+});
+
+document.addEventListener('mouseup', e => {
+  if (!state.drawing) return;
+  state.drawing = false;
+  const ctx = drawCanvas().getContext('2d');
+  ctx.clearRect(0, 0, drawCanvas().width, drawCanvas().height);
+
+  const s = state.drawStart, c = state.drawCurrent;
+  const x = Math.min(s.x, c.x), y = Math.min(s.y, c.y);
+  const w = Math.abs(c.x - s.x), h = Math.abs(c.y - s.y);
+  if (w < 5 || h < 5) return;
+
+  const img = document.getElementById('main-image');
+  const box = {
+    x: x / img.naturalWidth,
+    y: y / img.naturalHeight,
+    w: w / img.naturalWidth,
+    h: h / img.naturalHeight,
+    label: 'object',
+  };
+  state.images[state.current].labels.boxes.push(box);
+  state.selectedBox = state.images[state.current].labels.boxes.length - 1;
+  renderBboxes();
+  renderBboxList();
+});
+
+function drawPreview() {
+  const canvas = drawCanvas();
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const s = state.drawStart, c = state.drawCurrent;
+  const x = Math.min(s.x, c.x) * state.zoom;
+  const y = Math.min(s.y, c.y) * state.zoom;
+  const w = Math.abs(c.x - s.x) * state.zoom;
+  const h = Math.abs(c.y - s.y) * state.zoom;
+  ctx.strokeStyle = state.bboxColors[0];
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 3]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = state.bboxColors[0] + '18';
+  ctx.fillRect(x, y, w, h);
+}
+
+function renderBboxes() {
+  if (state.current === -1) return;
+  const svg = document.getElementById('bbox-overlay');
+  svg.innerHTML = '';
+  const img = document.getElementById('main-image');
+  const boxes = state.images[state.current].labels.boxes;
+
+  boxes.forEach((box, i) => {
+    const x = box.x * img.naturalWidth * state.zoom;
+    const y = box.y * img.naturalHeight * state.zoom;
+    const w = box.w * img.naturalWidth * state.zoom;
+    const h = box.h * img.naturalHeight * state.zoom;
+    const color = state.bboxColors[i % state.bboxColors.length];
+    const isSelected = state.selectedBox === i;
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x); rect.setAttribute('y', y);
+    rect.setAttribute('width', w); rect.setAttribute('height', h);
+    rect.setAttribute('stroke', color);
+    rect.setAttribute('fill', color);
+    rect.setAttribute('fill-opacity', isSelected ? '0.18' : '0.06');
+    rect.setAttribute('stroke-width', isSelected ? 2.5 : 1.5);
+    rect.classList.add('bbox-rect');
+    rect.addEventListener('click', () => { state.selectedBox = i; renderBboxes(); renderBboxList(); });
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', x + 4); text.setAttribute('y', y - 4);
+    text.setAttribute('fill', color);
+    text.setAttribute('font-size', '11');
+    text.setAttribute('font-family', 'DM Mono, monospace');
+    text.textContent = box.label;
+
+    svg.appendChild(rect);
+    svg.appendChild(text);
+  });
+
+  document.getElementById('bbox-count').textContent = boxes.length + ' box' + (boxes.length !== 1 ? 'es' : '');
+}
+
+function renderBboxList() {
+  if (state.current === -1) return;
+  const list = document.getElementById('bbox-list');
+  const boxes = state.images[state.current].labels.boxes;
+  list.innerHTML = '';
+  boxes.forEach((box, i) => {
+    const color = state.bboxColors[i % state.bboxColors.length];
+    const item = document.createElement('div');
+    item.className = 'bbox-item';
+    item.innerHTML = `
+      <div class="bbox-color" style="background:${color}"></div>
+      <input class="bbox-label-input" value="${box.label}" placeholder="label…"
+        onchange="boxes[${i}].label = this.value; renderBboxes();" />
+      <button class="bbox-delete" onclick="deleteBox(${i})">×</button>
+    `;
+    // Bind boxes reference for onchange
+    item.querySelector('input').addEventListener('change', function() {
+      state.images[state.current].labels.boxes[i].label = this.value;
+      renderBboxes();
+    });
+    item.querySelector('.bbox-delete').addEventListener('click', () => deleteBox(i));
+    list.appendChild(item);
+  });
+}
+
+function deleteBox(i) {
+  state.images[state.current].labels.boxes.splice(i, 1);
+  if (state.selectedBox >= state.images[state.current].labels.boxes.length) state.selectedBox = -1;
+  renderBboxes();
+  renderBboxList();
+}
+
+// ═══════════════════════════════════════════════════
+// Label Panel
+// ═══════════════════════════════════════════════════
+function populateLabelPanel(labels) {
+  renderTagGrid();
+  renderMultiTagGrid();
+  document.getElementById('notes-area').value = labels.notes || '';
+  document.getElementById('notes-area').onchange = () => {
+    if (state.current !== -1) state.images[state.current].labels.notes = document.getElementById('notes-area').value;
+  };
+}
+
+function renderTagGrid() {
+  const grid = document.getElementById('tag-grid');
+  grid.innerHTML = '';
+  const current = state.current !== -1 ? state.images[state.current].labels.classification : null;
+  state.classLabels.forEach((label, i) => {
+    const tag = document.createElement('button');
+    tag.className = 'tag' + (current === label ? ' selected' : '');
+    tag.textContent = label;
+    tag.onclick = () => {
+      if (state.current === -1) return;
+      state.images[state.current].labels.classification =
+        state.images[state.current].labels.classification === label ? null : label;
+      renderTagGrid();
+      updateProgress();
+    };
+    grid.appendChild(tag);
+  });
+}
+
+function renderMultiTagGrid() {
+  const grid = document.getElementById('multi-tag-grid');
+  grid.innerHTML = '';
+  const current = state.current !== -1 ? state.images[state.current].labels.tags : [];
+  state.multiLabels.forEach(label => {
+    const tag = document.createElement('button');
+    tag.className = 'tag' + (current.includes(label) ? ' multi-selected' : '');
+    tag.textContent = label;
+    tag.onclick = () => {
+      if (state.current === -1) return;
+      const tags = state.images[state.current].labels.tags;
+      const idx = tags.indexOf(label);
+      if (idx === -1) tags.push(label); else tags.splice(idx, 1);
+      renderMultiTagGrid();
+    };
+    grid.appendChild(tag);
+  });
+}
+
+function addCustomTag() {
+  const input = document.getElementById('new-tag-input');
+  const val = input.value.trim();
+  if (!val || state.classLabels.includes(val)) return;
+  state.classLabels.push(val);
+  input.value = '';
+  renderTagGrid();
+}
+
+function addMultiTag() {
+  const input = document.getElementById('new-multi-tag-input');
+  const val = input.value.trim();
+  if (!val || state.multiLabels.includes(val)) return;
+  state.multiLabels.push(val);
+  input.value = '';
+  renderMultiTagGrid();
+}
+
+document.getElementById('new-tag-input').addEventListener('keydown', e => { if (e.key === 'Enter') addCustomTag(); });
+document.getElementById('new-multi-tag-input').addEventListener('keydown', e => { if (e.key === 'Enter') addMultiTag(); });
+
+// ═══════════════════════════════════════════════════
+// File list
+// ═══════════════════════════════════════════════════
+function renderFileList() {
+  const list = document.getElementById('file-list');
+  list.innerHTML = '';
+  state.images.forEach((img, i) => {
+    const item = document.createElement('div');
+    item.className = 'file-item' + (i === state.current ? ' active' : '');
+    const isDone = img.labels.classification || img.labels.tags.length > 0 || img.labels.boxes.length > 0;
+    item.innerHTML = `
+      <img class="file-thumb" src="${img.url}" onerror="this.style.display='none'">
+      <span class="file-name">${img.name}</span>
+      <div class="file-status ${isDone ? 'done' : 'pending'}"></div>
+    `;
+    item.onclick = () => loadImage(i);
+    list.appendChild(item);
+  });
+  document.getElementById('file-count').textContent = state.images.length + ' files';
+  updateProgress();
+}
+
+function updateProgress() {
+  const done = state.images.filter(i =>
+    i.labels.classification || i.labels.tags.length > 0 || i.labels.boxes.length > 0
+  ).length;
+  document.getElementById('progress-text').textContent = `${done} / ${state.images.length} labeled`;
+}
+
+// ═══════════════════════════════════════════════════
+// Save / navigate
+// ═══════════════════════════════════════════════════
+function saveCurrent() {
+  if (state.current === -1) return;
+  state.images[state.current].labels.notes = document.getElementById('notes-area').value;
+  renderFileList();
+}
+
+function saveAndNext() {
+  saveCurrent();
+  if (state.current < state.images.length - 1) {
+    loadImage(state.current + 1);
+    toast('Saved → next image');
+  } else {
+    toast('All images labeled! Export CSV to save.');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// CSV Export
+// ═══════════════════════════════════════════════════
+function exportCSV() {
+  if (state.images.length === 0) { toast('No images to export'); return; }
+  saveCurrent();
+
+  const rows = [['filename', 'classification', 'tags', 'notes', 'bbox_index', 'bbox_label', 'bbox_x', 'bbox_y', 'bbox_w', 'bbox_h']];
+
+  state.images.forEach(img => {
+    const l = img.labels;
+    if (l.boxes.length === 0) {
+      rows.push([img.name, l.classification || '', l.tags.join('|'), l.notes.replace(/\n/g, ' '), '', '', '', '', '', '']);
+    } else {
+      l.boxes.forEach((b, i) => {
+        rows.push([
+          img.name,
+          l.classification || '',
+          l.tags.join('|'),
+          l.notes.replace(/\n/g, ' '),
+          i,
+          b.label,
+          b.x.toFixed(6), b.y.toFixed(6), b.w.toFixed(6), b.h.toFixed(6)
+        ]);
+      });
+    }
+  });
+
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'labels.csv';
+  a.click();
+  toast(`Exported ${state.images.length} images → labels.csv`);
+}
+
+// ═══════════════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════════════
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ═══════════════════════════════════════════════════
+// Keyboard shortcuts
+// ═══════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+
+  if (e.key === 'ArrowRight' || e.key === 's') {
+    if (e.key === 's') { saveAndNext(); return; }
+    saveCurrent();
+    if (state.current < state.images.length - 1) loadImage(state.current + 1);
+  }
+  if (e.key === 'ArrowLeft') {
+    saveCurrent();
+    if (state.current > 0) loadImage(state.current - 1);
+  }
+  if (e.key === 'Delete' && state.selectedBox !== -1) {
+    deleteBox(state.selectedBox);
+    state.selectedBox = -1;
+  }
+  // Quick number keys → classification
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= state.classLabels.length && state.current !== -1) {
+    state.images[state.current].labels.classification = state.classLabels[num - 1];
+    renderTagGrid();
+    updateProgress();
+    toast(`Labeled: ${state.classLabels[num - 1]}`);
+  }
+  if (e.key === 'b') setTool('bbox');
+  if (e.key === 'Escape') setTool('select');
+});
+</script>
+</body>
+</html>
